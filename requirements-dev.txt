@@ -1,0 +1,5 @@
+# Dépendances de développement : exécution + tests + qualité de code.
+-r requirements.txt
+-e .
+pytest==9.1.1
+ruff==0.17.1

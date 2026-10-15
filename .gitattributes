@@ -1,0 +1,7 @@
+# Fins de ligne LF partout (dépôt et copie de travail), même sous Windows.
+* text=auto eol=lf
+
+# Fichiers binaires : jamais de conversion.
+*.png binary
+*.jpg binary
+*.ico binary

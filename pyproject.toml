@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nova"
+description = "Suivi du temps de jeu sous Windows, avec une interface inspirée de la bibliothèque Steam."
+readme = "README.md"
+requires-python = ">=3.14"
+dynamic = ["version"]
+# Versions minimales ici ; les versions exactes testées sont figées dans requirements.txt.
+dependencies = [
+    "PySide6-Essentials>=6.12",
+    "psutil>=7.2",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "nova.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/W : style PEP 8, F : erreurs courantes, I : ordre des imports,
+# B : bugs probables, UP : syntaxe Python moderne.
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"

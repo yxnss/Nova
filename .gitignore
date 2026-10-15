@@ -1,0 +1,29 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Outils de test et de qualité
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Données personnelles : ne jamais versionner (elles vivent dans %APPDATA%\Nova)
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Notes de travail locales
+PLAN.md
+.claude/
+
+# Éditeurs et système
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
