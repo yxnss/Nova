@@ -6,6 +6,7 @@ d'environnement ``NOVA_DATA_DIR`` permet d'utiliser un autre dossier
 """
 
 import os
+import sys
 from pathlib import Path
 
 APP_NAME = "Nova"
@@ -32,3 +33,18 @@ def logs_dir() -> Path:
     path = data_dir() / "logs"
     path.mkdir(exist_ok=True)
     return path
+
+
+def icons_dir() -> Path:
+    return data_dir() / "icons"
+
+
+def asset_path(name: str) -> Path:
+    """Chemin d'un fichier du dossier ``assets`` du projet.
+
+    Une fois l'application empaquetée par PyInstaller, les fichiers sont décompressés
+    dans le dossier indiqué par ``sys._MEIPASS`` au lieu du dossier du projet.
+    """
+    bundle = getattr(sys, "_MEIPASS", None)
+    root = Path(bundle) if bundle else Path(__file__).resolve().parents[3]
+    return root / "assets" / name
