@@ -59,10 +59,18 @@ class PsutilScanner:
         alive = set()
         for pid in pids:
             process = self._known.get(pid)
-            # is_running() vérifie aussi l'heure de création : un PID réutilisé
-            # par un autre programme est considéré comme terminé.
-            if process is not None and process.is_running():
+            if process is None:
+                continue
+            try:
+                # is_running() vérifie aussi l'heure de création : un PID réutilisé
+                # par un autre programme est considéré comme terminé.
+                if process.is_running():
+                    alive.add(pid)
+            except psutil.AccessDenied:
+                # Processus protégé (anti-triche) : l'accès est refusé, donc il existe.
                 alive.add(pid)
+            except psutil.Error:
+                pass  # disparu entre-temps : le moteur fera un scan de confirmation
         return alive
 
     def exe_path(self, pid: int) -> str | None:
