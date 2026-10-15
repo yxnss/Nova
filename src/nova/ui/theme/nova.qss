@@ -1,0 +1,307 @@
+/*
+ * Thème sombre de Nova.
+ * Les couleurs viennent de palette.py : chaque arobase suivie d'un nom de couleur
+ * est remplacée par sa valeur au chargement. Pour ajuster une couleur, modifier
+ * palette.py.
+ */
+
+QWidget {
+    background-color: @background;
+    color: @text;
+}
+
+QToolTip {
+    background-color: @card;
+    color: @text;
+    border: 1px solid @border;
+    padding: 4px 6px;
+}
+
+/* --- Barre latérale --- */
+
+#sidebar {
+    background-color: @panel;
+    border-right: 1px solid @border;
+}
+
+#sidebar QLabel {
+    background-color: transparent;
+}
+
+#appTitle {
+    font-size: 13pt;
+    font-weight: 600;
+}
+
+/* --- Champs de saisie et listes déroulantes --- */
+
+QLineEdit {
+    background-color: @card;
+    border: 1px solid @border;
+    border-radius: 6px;
+    padding: 6px 8px;
+    selection-background-color: @accent;
+}
+
+QLineEdit:focus {
+    border-color: @accent;
+}
+
+QComboBox {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: @text_secondary;
+    padding: 4px 6px;
+}
+
+QComboBox:hover {
+    color: @text;
+    border-color: @border;
+}
+
+QComboBox QAbstractItemView {
+    background-color: @card;
+    border: 1px solid @border;
+    selection-background-color: @selection;
+    outline: 0;
+}
+
+/* --- Listes de jeux et de programmes --- */
+
+QListView {
+    background-color: transparent;
+    border: none;
+    outline: 0;
+}
+
+QListView::item {
+    color: @text_secondary;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 4px 6px;
+    margin: 1px 0;
+}
+
+QListView::item:hover {
+    background-color: @hover;
+    color: @text;
+}
+
+QListView::item:selected {
+    background-color: @selection;
+    border-color: @accent;
+    color: @text;
+}
+
+QListView::item:disabled {
+    color: @text_muted;
+}
+
+#programList {
+    background-color: @panel;
+    border: 1px solid @border;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+/* --- Boutons --- */
+
+QPushButton {
+    background-color: @card;
+    border: 1px solid @border;
+    border-radius: 6px;
+    padding: 7px 14px;
+    color: @text;
+}
+
+QPushButton:hover {
+    background-color: @hover;
+    border-color: @border_strong;
+}
+
+QPushButton:pressed {
+    background-color: @border;
+}
+
+QPushButton:disabled {
+    color: @text_muted;
+    border-color: @border;
+}
+
+QPushButton[variant="primary"] {
+    background-color: @accent;
+    border: 1px solid @accent;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+QPushButton[variant="primary"]:hover {
+    background-color: @accent_hover;
+    border-color: @accent_hover;
+}
+
+QPushButton[variant="primary"]:pressed {
+    background-color: @accent_pressed;
+}
+
+QPushButton[variant="primary"]:disabled {
+    background-color: @border;
+    border-color: @border;
+    color: @text_muted;
+}
+
+QPushButton[variant="add"] {
+    background-color: transparent;
+    border: 1px dashed @border_strong;
+    color: @lilac;
+}
+
+QPushButton[variant="add"]:hover {
+    border-color: @lilac;
+    background-color: @hover;
+}
+
+QPushButton[variant="danger"] {
+    background-color: transparent;
+    color: @danger;
+}
+
+QPushButton[variant="danger"]:hover {
+    border-color: @danger;
+}
+
+/* --- Textes --- */
+
+QLabel {
+    background-color: transparent;
+}
+
+QLabel[role="title"] {
+    font-size: 20pt;
+    font-weight: 600;
+}
+
+QLabel[role="secondary"] {
+    color: @text_secondary;
+}
+
+QLabel[role="hint"] {
+    color: @text_muted;
+}
+
+QLabel[role="error"] {
+    color: @danger;
+}
+
+QLabel[role="running"] {
+    color: @running;
+}
+
+QLabel[role="statLabel"] {
+    color: @text_secondary;
+    font-size: 9pt;
+}
+
+QLabel[role="statValue"] {
+    font-size: 15pt;
+    font-weight: 600;
+}
+
+QFrame[role="card"] {
+    background-color: @card;
+    border-radius: 8px;
+}
+
+QFrame[role="card"] QLabel {
+    background-color: transparent;
+}
+
+/* --- Onglets (fenêtre d'ajout) --- */
+
+QTabWidget::pane {
+    border: none;
+}
+
+QTabBar::tab {
+    background-color: transparent;
+    color: @text_secondary;
+    padding: 8px 14px;
+    border: none;
+    border-bottom: 2px solid transparent;
+}
+
+QTabBar::tab:hover {
+    color: @text;
+}
+
+QTabBar::tab:selected {
+    color: @text;
+    border-bottom: 2px solid @accent;
+}
+
+/* --- Cases à cocher --- */
+
+QCheckBox {
+    color: @text_secondary;
+    spacing: 8px;
+    background-color: transparent;
+}
+
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid @border_strong;
+    border-radius: 4px;
+    background-color: @card;
+}
+
+QCheckBox::indicator:checked {
+    background-color: @accent;
+    border-color: @accent;
+}
+
+/* --- Menus contextuels --- */
+
+QMenu {
+    background-color: @card;
+    border: 1px solid @border;
+    padding: 4px;
+}
+
+QMenu::item {
+    padding: 6px 18px;
+    border-radius: 4px;
+}
+
+QMenu::item:selected {
+    background-color: @selection;
+}
+
+/* --- Barres de défilement fines --- */
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: @border;
+    border-radius: 4px;
+    min-height: 24px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: @border_strong;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background: none;
+}

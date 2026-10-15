@@ -22,7 +22,10 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+# Nova tourne sous Python 3.14, mais on cible 3.13 pour que le formateur garde
+# « except (A, B): ». La forme sans parenthèses de 3.14 ressemble à l'ancienne
+# syntaxe de Python 2, qui avait un tout autre sens : elle est moins lisible.
+target-version = "py313"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
