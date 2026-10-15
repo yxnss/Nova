@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from nova.core.events import GameStarted, GameStopped, TrackerEvent
 from nova.core.models import TrackedGame
-from nova.core.tracker import Tracker, TrackerSettings
+from nova.core.tracker import SessionStore, Tracker, TrackerSettings
 
 
 class FakeClock:
@@ -110,10 +110,16 @@ class FakeStore:
 class TrackerHarness:
     """Assemble le moteur et ses doublures, et le fait tourner comme le ferait Nova."""
 
-    def __init__(self, *games: TrackedGame, settings: TrackerSettings | None = None) -> None:
+    def __init__(
+        self,
+        *games: TrackedGame,
+        settings: TrackerSettings | None = None,
+        store: SessionStore | None = None,
+    ) -> None:
         self.clock = FakeClock()
         self.scanner = FakeScanner()
-        self.store = FakeStore()
+        # Stockage simulé par défaut ; un test peut fournir la vraie base SQLite.
+        self.store = store if store is not None else FakeStore()
         self.tracker = Tracker(self.scanner, self.store, self.clock, settings)
         self.step = (settings or TrackerSettings()).scan_interval
         self.events: list[TrackerEvent] = list(self.tracker.set_games(games))
