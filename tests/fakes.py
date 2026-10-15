@@ -3,6 +3,8 @@
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 
+from PySide6.QtCore import QObject, Signal
+
 from nova.core.events import GameStarted, GameStopped, TrackerEvent
 from nova.core.models import TrackedGame
 from nova.core.tracker import SessionStore, Tracker, TrackerSettings
@@ -139,3 +141,24 @@ class TrackerHarness:
 
     def stopped(self) -> list[GameStopped]:
         return [e for e in self.events if isinstance(e, GameStopped)]
+
+
+class FakeTracking(QObject):
+    """Service de suivi simulé : enregistre les demandes de la bibliothèque."""
+
+    ready = Signal(object)
+    game_started = Signal(object)
+    game_stopped = Signal(object)
+    game_path_found = Signal(int, str)
+    game_removed = Signal(int)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reloads = 0
+        self.removal_requests: list[int] = []
+
+    def reload_games(self) -> None:
+        self.reloads += 1
+
+    def remove_game(self, game_id: int) -> None:
+        self.removal_requests.append(game_id)
