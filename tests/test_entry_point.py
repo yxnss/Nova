@@ -8,6 +8,6 @@ def test_version_has_three_parts() -> None:
     assert len(__version__.split(".")) == 3
 
 
-def test_main_prints_version(capsys) -> None:
-    assert main() == 0
+def test_version_option_prints_version(capsys) -> None:
+    assert main(["--version"]) == 0
     assert __version__ in capsys.readouterr().out
