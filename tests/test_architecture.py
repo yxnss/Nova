@@ -15,6 +15,8 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 FORBIDDEN_IMPORTS = {
     "core": ("PySide6", "sqlite3", "nova.data", "nova.services", "nova.system", "nova.ui"),
     "data": ("PySide6", "nova.services", "nova.system", "nova.ui"),
+    "services": ("nova.ui",),
+    "system": ("nova.services", "nova.ui"),
 }
 
 

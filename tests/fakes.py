@@ -60,7 +60,8 @@ class FakeScanner:
         self.full_scans += 1
         wanted = {name.lower() for name in names}
         found: dict[str, set[int]] = {}
-        for pid, name in self.processes.items():
+        # Copie de la liste : le test peut la modifier depuis un autre thread.
+        for pid, name in list(self.processes.items()):
             if name.lower() in wanted:
                 found.setdefault(name.lower(), set()).add(pid)
         return found
