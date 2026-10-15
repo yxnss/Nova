@@ -28,11 +28,6 @@ FAST = TrackerSettings(
 )
 
 
-@pytest.fixture(scope="session")
-def qapp() -> QCoreApplication:
-    return QCoreApplication.instance() or QCoreApplication([])
-
-
 def wait_until(condition: Callable[[], bool], timeout: float = 5.0) -> None:
     """Fait tourner la boucle d'événements Qt jusqu'à ce que la condition soit vraie."""
     deadline = time.monotonic() + timeout

@@ -11,7 +11,23 @@ import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from PySide6.QtCore import QThread
+
 _FORMAT = "%(asctime)s %(levelname)-7s [%(threadName)s] %(name)s : %(message)s"
+
+
+class _QtThreadName(logging.Filter):
+    """Donne aux messages des threads Qt le nom de leur QThread (ex. « suivi »).
+
+    Python ne connaît pas les threads créés par Qt et les appelle « Dummy-N ».
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.threadName and record.threadName.startswith("Dummy"):
+            name = QThread.currentThread().objectName()
+            if name:
+                record.threadName = name
+        return True
 
 
 def setup_logging(logs_dir: Path, *, console_level: int | None = None) -> None:
@@ -30,6 +46,7 @@ def setup_logging(logs_dir: Path, *, console_level: int | None = None) -> None:
         logs_dir / "nova.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
     file_handler.setFormatter(logging.Formatter(_FORMAT))
+    file_handler.addFilter(_QtThreadName())
     root.addHandler(file_handler)
 
     # Dans l'exe sans console, sys.stderr vaut None : on n'affiche alors rien.

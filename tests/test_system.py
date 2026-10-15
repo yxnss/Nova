@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QThread
 
 from nova.system import paths
 from nova.system.logging_setup import setup_logging
@@ -44,11 +45,28 @@ def restore_logging():
     sys.excepthook, threading.excepthook = hooks
 
 
+def read_log(logs_dir: Path) -> str:
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    return (logs_dir / "nova.log").read_text(encoding="utf-8")
+
+
+def test_log_lines_from_a_qt_thread_carry_its_name(qapp, tmp_path: Path, restore_logging) -> None:
+    class LoggingThread(QThread):
+        def run(self) -> None:
+            logging.getLogger("nova.test").info("message du thread de suivi")
+
+    setup_logging(tmp_path)
+    thread = LoggingThread()
+    thread.setObjectName("suivi")
+    thread.start()
+    thread.wait()
+
+    assert "[suivi] nova.test : message du thread de suivi" in read_log(tmp_path)
+
+
 def test_log_file_receives_messages(tmp_path: Path, restore_logging) -> None:
     setup_logging(tmp_path)
     logging.getLogger("nova.test").info("Jeu 1 démarré")
-    for handler in logging.getLogger().handlers:
-        handler.flush()
 
-    content = (tmp_path / "nova.log").read_text(encoding="utf-8")
-    assert "Jeu 1 démarré" in content
+    assert "[MainThread] nova.test : Jeu 1 démarré" in read_log(tmp_path)

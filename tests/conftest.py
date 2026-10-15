@@ -5,8 +5,15 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QCoreApplication
 
 from nova.data.database import connect
+
+
+@pytest.fixture(scope="session")
+def qapp() -> QCoreApplication:
+    """Application Qt minimale (sans fenêtre), nécessaire aux threads et signaux Qt."""
+    return QCoreApplication.instance() or QCoreApplication([])
 
 
 @pytest.fixture
