@@ -37,6 +37,8 @@
 2. Extrayez le dossier `Nova` où vous voulez (par exemple dans `Documents`), puis lancez `Nova.exe`.
 3. Au premier lancement, Windows SmartScreen peut afficher un avertissement, car l'exécutable n'est pas signé : cliquez sur « Informations complémentaires », puis « Exécuter quand même ».
 
+`Nova.exe` doit rester dans son dossier, à côté du dossier `_internal` dont il a besoin. Pour le lancer depuis le bureau, créez plutôt un raccourci : clic droit sur `Nova.exe`, « Afficher d'autres options », « Envoyer vers », « Bureau (créer un raccourci) ».
+
 Aucune installation de Python n'est nécessaire. Vos données restent sur votre PC, dans `%APPDATA%\Nova` : Nova ne fait aucune connexion réseau.
 
 **Désinstaller** : décochez « Lancer Nova au démarrage de Windows » dans les paramètres, quittez Nova (clic droit sur l'icône, « Quitter Nova »), puis supprimez le dossier `Nova` et, si vous le souhaitez, `%APPDATA%\Nova`.
