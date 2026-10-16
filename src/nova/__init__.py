@@ -1,3 +1,3 @@
 """Nova : suivi du temps de jeu sous Windows."""
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

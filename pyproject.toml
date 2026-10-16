@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "nova"
 description = "Suivi du temps de jeu sous Windows, avec une interface inspirée de la bibliothèque Steam."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dynamic = ["version"]
 # Versions minimales ici ; les versions exactes testées sont figées dans requirements.txt.
