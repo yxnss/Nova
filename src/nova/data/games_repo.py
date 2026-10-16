@@ -61,8 +61,9 @@ class GameRepository:
     def set_banner(self, game_id: int, banner_file: str | None) -> None:
         self._conn.execute("UPDATE games SET banner_file = ? WHERE id = ?", (banner_file, game_id))
 
-    def set_launch_error(self, game_id: int, message: str | None) -> None:
-        self._conn.execute("UPDATE games SET launch_error = ? WHERE id = ?", (message, game_id))
+    def set_launch_error(self, game_id: int, reason: str | None) -> None:
+        """Enregistre le code de raison d'un échec de lancement (None : lançable)."""
+        self._conn.execute("UPDATE games SET launch_error = ? WHERE id = ?", (reason, game_id))
 
     def delete(self, game_id: int) -> None:
         """Supprime le jeu ; ses sessions sont supprimées en cascade par SQLite."""

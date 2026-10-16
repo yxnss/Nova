@@ -2,6 +2,7 @@
 
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,10 @@ from fakes import FakeTracking
 from nova.core.events import GameStarted, GameStopped, StopReason
 from nova.core.models import Game
 from nova.services.launcher import (
+    ACCESS_DENIED,
+    CLOSED_IMMEDIATELY,
     MISSING_FILE,
+    NOT_DETECTED,
     NOT_LAUNCHABLE,
     UNKNOWN_PATH,
     GameLauncher,
@@ -30,7 +34,19 @@ def test_launch_problems() -> None:
     assert launch_problem(game()) is None
     assert launch_problem(game(exe_path=None)) == UNKNOWN_PATH
     assert launch_problem(game(exe_path=r"C:\n-existe-pas\jeu.exe")) == MISSING_FILE
-    assert launch_problem(game(launch_error="Raison mémorisée")) == "Raison mémorisée"
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        ACCESS_DENIED,
+        NOT_DETECTED,
+        # Ancien format (une phrase), présent dans les bases d'avant ce changement.
+        "Windows n'a pas pu lancer ce jeu (Accès refusé).",
+    ],
+)
+def test_any_stored_reason_shows_the_clear_message(stored: str) -> None:
+    assert launch_problem(game(launch_error=stored)) == NOT_LAUNCHABLE
 
 
 class Harness:
@@ -68,7 +84,7 @@ def test_game_closing_immediately_is_not_launchable(h: Harness) -> None:
     h.tracking.game_started.emit(GameStarted(1, 100, EXE))
     h.tracking.game_stopped.emit(GameStopped(1, 100, 104, StopReason.CLOSED, counted=False))
 
-    assert h.failures == [(1, NOT_LAUNCHABLE)]
+    assert h.failures == [(1, CLOSED_IMMEDIATELY)]
 
 
 def test_game_never_detected_is_not_launchable(qapp) -> None:
@@ -79,7 +95,7 @@ def test_game_never_detected_is_not_launchable(qapp) -> None:
         QCoreApplication.processEvents()
         time.sleep(0.01)
 
-    assert h.failures == [(1, NOT_LAUNCHABLE)]
+    assert h.failures == [(1, NOT_DETECTED)]
     assert not h.launcher.is_pending(1)
 
 
@@ -89,14 +105,32 @@ def test_short_session_of_a_game_not_launched_from_nova_is_ignored(h: Harness) -
     assert h.failures == []
 
 
-def test_windows_refusal_is_reported(qapp) -> None:
-    def refuse(path: str) -> None:
-        raise OSError(1223, "Opération annulée par l'utilisateur")
+def windows_error(code: int) -> Callable[[str], None]:
+    """Simule un refus de Windows avec son code d'erreur (OSError.winerror)."""
 
-    h = Harness(open_file=refuse)
-    with pytest.raises(LaunchError):
+    def refuse(path: str) -> None:
+        raise OSError(None, "refus simulé", None, code)
+
+    return refuse
+
+
+def test_access_denied_marks_the_game_with_the_clear_message(qapp) -> None:
+    # Cas réel : Vanguard (Valorant) bloque le lancement direct par « Accès refusé ».
+    h = Harness(open_file=windows_error(5))
+    with pytest.raises(LaunchError) as raised:
         h.launcher.launch(game())
-    assert h.failures and "Windows n'a pas pu lancer ce jeu" in h.failures[0][1]
+
+    assert str(raised.value) == NOT_LAUNCHABLE
+    assert h.failures == [(1, ACCESS_DENIED)]
+
+
+def test_refusing_the_uac_prompt_does_not_mark_the_game(qapp) -> None:
+    h = Harness(open_file=windows_error(1223))  # « Non » dans la fenêtre UAC
+    with pytest.raises(LaunchError, match="annulé"):
+        h.launcher.launch(game())
+
+    assert h.failures == []  # le jeu reste lançable
+    assert not h.launcher.is_pending(1)
 
 
 def test_problem_prevents_launch(h: Harness) -> None:

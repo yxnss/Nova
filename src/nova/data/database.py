@@ -37,7 +37,8 @@ MIGRATIONS: list[tuple[str, ...]] = [
     # Version 2 : bannière personnalisée et jeux impossibles à lancer directement.
     (
         "ALTER TABLE games ADD COLUMN banner_file TEXT",  # NULL : bannière par défaut
-        "ALTER TABLE games ADD COLUMN launch_error TEXT",  # NULL : lançable (à notre connaissance)
+        # NULL : lançable (à notre connaissance) ; sinon code de raison (« access_denied »…).
+        "ALTER TABLE games ADD COLUMN launch_error TEXT",
     ),
 ]
 

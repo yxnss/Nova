@@ -165,9 +165,9 @@ class LibraryService(QObject):
             raise LibraryError(str(error)) from None
         log.info("Lancement de %s depuis Nova", game.display_name)
 
-    def _on_launch_failed(self, game_id: int, message: str) -> None:
-        log.warning("Jeu %d marqué comme non lançable : %s", game_id, message)
-        self._games.set_launch_error(game_id, message)
+    def _on_launch_failed(self, game_id: int, reason: str) -> None:
+        log.warning("Jeu %d marqué comme non lançable (%s)", game_id, reason)
+        self._games.set_launch_error(game_id, reason)
         self.changed.emit()
 
     # --- Réactions au thread de suivi ---

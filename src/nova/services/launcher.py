@@ -1,12 +1,16 @@
 """Bouton « Lancer » : lancement d'un jeu et détection des jeux non lançables.
 
 Certains jeux ne se lancent pas directement : Valorant exige le Riot Client, un jeu
-Epic passe par son lanceur… Après un lancement, Nova surveille donc le jeu grâce au
-moteur de suivi. S'il n'est pas détecté dans le délai prévu, ou s'il se ferme
-presque aussitôt, il est marqué « non lançable » : le bouton reste alors grisé avec
-un message, et ce choix est mémorisé.
+Epic passe par son lanceur… Un jeu est marqué « non lançable » si Windows refuse de
+le lancer (Vanguard répond « Accès refusé »), s'il n'est pas détecté dans le délai
+prévu ou s'il se ferme presque aussitôt. Le bouton reste alors grisé avec un
+message, et ce choix est mémorisé.
+
+En base, on enregistre un **code** de raison (« access_denied »…) et non la phrase
+affichée : le texte peut ainsi évoluer sans toucher aux données.
 """
 
+import logging
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -16,9 +20,21 @@ from PySide6.QtCore import QObject, QTimer, Signal, SignalInstance
 from nova.core.events import GameStarted, GameStopped, StopReason
 from nova.core.models import Game
 
+log = logging.getLogger(__name__)
+
 # Délai pour que le jeu soit détecté après un clic. Assez long pour les lanceurs
 # qui démarrent le vrai jeu après une vérification ou une mise à jour.
 LAUNCH_TIMEOUT = 45.0
+
+# Codes de raison enregistrés en base (colonne games.launch_error).
+ACCESS_DENIED = "access_denied"  # Windows a refusé (anti-triche qui bloque le lancement direct)
+WINDOWS_ERROR = "windows_error"  # autre refus de Windows
+NOT_DETECTED = "not_detected"  # le jeu n'est jamais apparu après le clic
+CLOSED_IMMEDIATELY = "closed_immediately"  # le jeu s'est fermé en moins de 10 s
+
+# Codes d'erreur Windows utiles ici.
+_ERROR_ACCESS_DENIED = 5
+_ERROR_CANCELLED = 1223  # l'utilisateur a répondu « Non » à la fenêtre UAC
 
 NOT_LAUNCHABLE = (
     "Ce jeu ne se lance pas directement. Lancez-le depuis son lanceur habituel "
@@ -36,9 +52,10 @@ class LaunchError(Exception):
 
 
 def launch_problem(game: Game) -> str | None:
-    """Raison pour laquelle le jeu ne peut pas être lancé depuis Nova, ou None."""
+    """Message expliquant pourquoi le jeu ne peut pas être lancé depuis Nova, ou None."""
     if game.launch_error:
-        return game.launch_error
+        # Quel que soit le code enregistré, le conseil utile est le même.
+        return NOT_LAUNCHABLE
     if not game.exe_path:
         return UNKNOWN_PATH
     if not Path(game.exe_path).is_file():
@@ -57,7 +74,7 @@ def open_with_windows(exe_path: str) -> None:
 
 
 class GameLauncher(QObject):
-    launch_failed = Signal(int, str)  # id du jeu, message à afficher
+    launch_failed = Signal(int, str)  # id du jeu, code de raison (à enregistrer)
     pending_changed = Signal()  # un lancement commence ou se termine
 
     def __init__(
@@ -86,13 +103,18 @@ class GameLauncher(QObject):
         try:
             self._open_file(game.exe_path)
         except OSError as error:
-            message = f"Windows n'a pas pu lancer ce jeu ({error.strerror or error})."
-            self.launch_failed.emit(game.id, message)
-            raise LaunchError(message) from error
+            code = getattr(error, "winerror", None)
+            if code == _ERROR_CANCELLED:
+                # Refus de l'utilisateur dans la fenêtre UAC : le jeu n'est pas en cause.
+                raise LaunchError("Lancement annulé.") from error
+            log.warning("Windows refuse de lancer %s : %s", game.exe_path, error)
+            reason = ACCESS_DENIED if code == _ERROR_ACCESS_DENIED else WINDOWS_ERROR
+            self.launch_failed.emit(game.id, reason)
+            raise LaunchError(NOT_LAUNCHABLE) from error
 
         timer = QTimer(self)
         timer.setSingleShot(True)
-        timer.timeout.connect(lambda: self._fail(game.id))
+        timer.timeout.connect(lambda: self._fail(game.id, NOT_DETECTED))
         timer.start(round(self._timeout * 1000))
         self._pending[game.id] = timer
         self.pending_changed.emit()
@@ -109,11 +131,11 @@ class GameLauncher(QObject):
         # Fermé avant la durée minimale d'une session : le jeu a refusé de démarrer
         # (lanceur exigé, anti-triche…).
         if event.reason == StopReason.CLOSED and not event.counted:
-            self._fail(event.game_id)
+            self._fail(event.game_id, CLOSED_IMMEDIATELY)
 
-    def _fail(self, game_id: int) -> None:
+    def _fail(self, game_id: int, reason: str) -> None:
         self._stop_waiting(game_id)
-        self.launch_failed.emit(game_id, NOT_LAUNCHABLE)
+        self.launch_failed.emit(game_id, reason)
         self.pending_changed.emit()
 
     def _stop_waiting(self, game_id: int) -> bool:
