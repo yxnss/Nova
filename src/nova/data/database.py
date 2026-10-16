@@ -50,18 +50,20 @@ class UnsupportedDatabaseVersion(Exception):
 def connect(path: str | Path) -> sqlite3.Connection:
     """Ouvre la base (en la créant si besoin) et met son schéma à jour."""
     conn = sqlite3.connect(path, autocommit=True)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")  # active la suppression en cascade
-    conn.execute("PRAGMA busy_timeout = 5000")  # attend jusqu'à 5 s si l'autre connexion écrit
-    conn.execute("PRAGMA journal_mode = WAL")
-    # FULL : chaque validation est écrite physiquement sur le disque. En mode WAL,
-    # NORMAL ne garantit pas qu'une sauvegarde survive à une coupure de courant,
-    # et FULL ne coûte qu'une écriture disque par minute de jeu.
-    conn.execute("PRAGMA synchronous = FULL")
     try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")  # active la suppression en cascade
+        conn.execute("PRAGMA busy_timeout = 5000")  # attend jusqu'à 5 s si l'autre écrit
+        conn.execute("PRAGMA journal_mode = WAL")
+        # FULL : chaque validation est écrite physiquement sur le disque. En mode WAL,
+        # NORMAL ne garantit pas qu'une sauvegarde survive à une coupure de courant,
+        # et FULL ne coûte qu'une écriture disque par minute de jeu.
+        conn.execute("PRAGMA synchronous = FULL")
         migrate(conn)
     except BaseException:
-        conn.close()  # ne pas laisser le fichier ouvert si la base est inutilisable
+        # Base inutilisable : on referme tout de suite, sinon Windows garde le fichier
+        # verrouillé et il devient impossible de le mettre de côté.
+        conn.close()
         raise
     return conn
 

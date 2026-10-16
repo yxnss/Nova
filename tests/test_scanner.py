@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import time
 
 import psutil
 import pytest
@@ -48,6 +49,11 @@ def test_still_running_detects_end_of_process(ping_process) -> None:
 
     ping_process.kill()
     ping_process.wait(timeout=10)
+    # Windows met parfois quelques instants à retirer un processus terminé ; le moteur
+    # réel revérifie de toute façon toutes les 5 s.
+    deadline = time.monotonic() + 3
+    while scanner.still_running({pid}) and time.monotonic() < deadline:
+        time.sleep(0.05)
     assert scanner.still_running({pid}) == set()
 
 

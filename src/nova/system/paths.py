@@ -43,6 +43,10 @@ def banners_dir() -> Path:
     return data_dir() / "banners"
 
 
+def backups_dir() -> Path:
+    return data_dir() / "backups"
+
+
 def settings_path() -> Path:
     return data_dir() / "settings.ini"
 
