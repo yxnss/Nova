@@ -5,9 +5,11 @@ import sys
 from pathlib import Path
 
 import pytest
+from PySide6.QtGui import QColor, QImage
 
 from fakes import FakeClock, FakeTracking
 from nova.services.library import LibraryError, LibraryService, normalize_new_process_name
+from nova.system.banners import BannerStore
 from nova.system.icons import IconCache
 
 
@@ -41,8 +43,10 @@ def icons(tmp_path: Path) -> IconCache:
 
 
 @pytest.fixture
-def library(db: sqlite3.Connection, tracking: FakeTracking, icons: IconCache) -> LibraryService:
-    return LibraryService(db, tracking, icons, FakeClock())
+def library(
+    db: sqlite3.Connection, tracking: FakeTracking, icons: IconCache, tmp_path: Path
+) -> LibraryService:
+    return LibraryService(db, tracking, icons, BannerStore(tmp_path / "banners"), FakeClock())
 
 
 def test_adding_a_game_reloads_tracking_and_notifies(library, tracking) -> None:
@@ -95,3 +99,50 @@ def test_icon_appears_when_the_path_of_a_game_added_by_name_is_found(library, tr
 
     tracking.game_path_found.emit(game.id, sys.executable)
     assert library.icon(game.id) is not None
+
+
+def make_banner(path: Path) -> Path:
+    image = QImage(600, 200, QImage.Format.Format_RGB32)
+    image.fill(QColor("#7D27FA"))
+    image.save(str(path))
+    return path
+
+
+def test_banner_is_set_replaced_and_reset(library, tmp_path) -> None:
+    game = library.add_game("game.exe", "Game")
+    library.set_banner(game.id, str(make_banner(tmp_path / "a.png")))
+    first = library.banner_path(library.games()[0])
+    assert first is not None and first.exists()
+
+    library.set_banner(game.id, str(make_banner(tmp_path / "b.png")))
+    second = library.banner_path(library.games()[0])
+    assert second != first and second.exists()
+    assert not first.exists()  # l'ancienne copie est supprimée
+
+    library.reset_banner(game.id)
+    assert library.banner_path(library.games()[0]) is None
+    assert not second.exists()
+
+
+def test_unreadable_banner_gives_a_readable_error(library, tmp_path) -> None:
+    game = library.add_game("game.exe", "Game")
+    fake = tmp_path / "faux.png"
+    fake.write_text("pas une image", encoding="utf-8")
+    with pytest.raises(LibraryError, match="n'a pas pu être lue"):
+        library.set_banner(game.id, str(fake))
+
+
+def test_removing_a_game_deletes_its_banner(library, tracking, tmp_path) -> None:
+    game = library.add_game("game.exe", "Game")
+    library.set_banner(game.id, str(make_banner(tmp_path / "a.png")))
+    banner = library.banner_path(library.games()[0])
+
+    tracking.game_removed.emit(game.id)
+    assert not banner.exists()
+
+
+def test_launch_failure_is_remembered(library, tracking) -> None:
+    game = library.add_game("game.exe", "Game", sys.executable)
+    library._launcher.launch_failed.emit(game.id, "Ce jeu ne se lance pas directement.")
+
+    assert library.games()[0].launch_error == "Ce jeu ne se lance pas directement."

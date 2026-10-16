@@ -13,6 +13,7 @@ COLORS = {
     "border": "#2A2340",
     "border_strong": "#4A3A75",
     # Violets du logo.
+    "night": "#0B0128",  # fond du disque du logo, départ de la bannière par défaut
     "deep_violet": "#3E05C2",
     "selection": "#2B1466",  # élément sélectionné
     "accent": "#7D27FA",  # action principale, sélection, focus
@@ -25,5 +26,7 @@ COLORS = {
     "text_muted": "#6E6487",
     # États.
     "running": "#3DDC97",  # jeu en cours : vert doux, distinct du violet de sélection
+    "running_background": "#12261F",
+    "running_border": "#1F5A43",
     "danger": "#F26D7D",
 }

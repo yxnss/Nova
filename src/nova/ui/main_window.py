@@ -1,12 +1,13 @@
 """Fenêtre principale : liste des jeux à gauche, fiche du jeu sélectionné à droite."""
 
-import time
+from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QPoint, QSize, Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QEvent, QModelIndex, QPoint, QSize, Qt
+from PySide6.QtGui import QHideEvent, QPixmap, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -20,8 +21,9 @@ from PySide6.QtWidgets import (
 )
 
 from nova.core.events import GameStarted, GameStopped
-from nova.services.library import LibraryService
+from nova.services.library import LibraryError, LibraryService
 from nova.services.tracking import TrackingService
+from nova.system.banners import IMAGE_FILTER
 from nova.system.paths import asset_path
 from nova.ui.add_game_dialog import AddGameDialog
 from nova.ui.formatting import format_duration
@@ -58,11 +60,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         library.changed.connect(self.refresh)
+        library.launch_state_changed.connect(self._update_details)
         tracking.ready.connect(self.refresh)
         tracking.game_started.connect(self._on_game_started)
         tracking.game_stopped.connect(self._on_game_stopped)
         self._empty.add_requested.connect(self.open_add_dialog)
         self._details.remove_requested.connect(self.confirm_remove)
+        self._details.launch_requested.connect(self._launch)
+        self._details.change_banner_requested.connect(self._choose_banner)
+        self._details.reset_banner_requested.connect(library.reset_banner)
         self.refresh()
 
     def _build_sidebar(self) -> QWidget:
@@ -153,8 +159,31 @@ class MainWindow(QMainWindow):
         game_id = self._selected_game_id()
         row = self._model.find(game_id) if game_id is not None else None
         if row is not None:
-            self._details.show_game(row, time.time())
+            self._details.show_game(
+                row,
+                launching=self._library.is_launching(row.game.id),
+                banner=self._library.banner_path(row.game),
+                icon=self._library.icon(row.game.id),
+            )
         self._pages.setCurrentWidget(self._details)
+
+    # --- Compteur en direct : seulement si la fenêtre est visible et non réduite ---
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        self._update_live_display()
+
+    def hideEvent(self, event: QHideEvent) -> None:
+        super().hideEvent(event)
+        self._update_live_display()
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange:
+            self._update_live_display()
+
+    def _update_live_display(self) -> None:
+        self._details.set_live_allowed(self.isVisible() and not self.isMinimized())
 
     def _on_game_started(self, event: GameStarted) -> None:
         self._running[event.game_id] = event.started_at
@@ -164,6 +193,26 @@ class MainWindow(QMainWindow):
     def _on_game_stopped(self, event: GameStopped) -> None:
         self._running.pop(event.game_id, None)
         self.refresh()  # la session vient d'être enregistrée : les statistiques changent
+
+    # --- Lancement et bannière ---
+
+    def _launch(self, game_id: int) -> None:
+        try:
+            self._library.launch_game(game_id)
+        except LibraryError:
+            pass  # la raison est enregistrée et s'affiche sous le bouton « Lancer »
+        self._update_details()
+
+    def _choose_banner(self, game_id: int) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choisir une bannière", str(Path.home() / "Pictures"), IMAGE_FILTER
+        )
+        if not path:
+            return
+        try:
+            self._library.set_banner(game_id, path)
+        except LibraryError as error:
+            QMessageBox.warning(self, "Bannière", str(error))
 
     # --- Ajout et retrait ---
 

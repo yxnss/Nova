@@ -1,18 +1,24 @@
 """Panneau de droite : fiche du jeu sélectionné, ou invitation si la bibliothèque est vide.
 
-Version de l'étape 3 : nom, statut, statistiques et retrait. La bannière, le
-compteur en direct et le bouton « Lancer » arrivent à l'étape 4.
+La fiche affiche la bannière, le bouton « Lancer », le statut et le temps de jeu.
+Pour un jeu en cours, un compteur avance chaque seconde, mais seulement quand la
+fenêtre est visible : réduite, Nova ne fait aucun calcul d'affichage.
 """
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap
+import time
+from pathlib import Path
+
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from nova.data.stats import add_running_session
+from nova.services.launcher import launch_problem
 from nova.system.paths import asset_path
-from nova.ui.formatting import format_clock, format_duration, format_last_played
+from nova.ui.banner import Banner
+from nova.ui.formatting import format_duration, format_elapsed, format_last_played
 from nova.ui.library_model import GameRow
-from nova.ui.widgets import make_button, make_label, set_style_property
+from nova.ui.widgets import ElidedLabel, make_button, make_label, set_style_property
 
 
 class _StatCard(QFrame):
@@ -28,23 +34,57 @@ class _StatCard(QFrame):
 
 
 class GameDetails(QWidget):
+    launch_requested = Signal(int)
     remove_requested = Signal(int)
+    change_banner_requested = Signal(int)
+    reset_banner_requested = Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
-        self._game_id: int | None = None
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 36, 40, 32)
-        layout.setSpacing(10)
+        self._row: GameRow | None = None
+        self._live_allowed = False  # la fenêtre est visible et non réduite
 
-        self._title = make_label(role="title", wrap=True)
-        self._status = make_label()
-        self._location = make_label(role="hint", wrap=True)
-        self._location.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self._title)
-        layout.addWidget(self._status)
-        layout.addWidget(self._location)
-        layout.addSpacing(18)
+        # Compteur en direct : une mise à jour par seconde, seulement si utile.
+        self._timer = QTimer(self)
+        self._timer.setInterval(1000)
+        self._timer.timeout.connect(self._refresh_numbers)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self._banner = Banner()
+        self._banner.change_requested.connect(
+            lambda: self._emit_for_game(self.change_banner_requested)
+        )
+        self._banner.reset_requested.connect(
+            lambda: self._emit_for_game(self.reset_banner_requested)
+        )
+        layout.addWidget(self._banner)
+
+        body = QVBoxLayout()
+        body.setContentsMargins(32, 16, 32, 24)
+        body.setSpacing(12)
+        layout.addLayout(body, 1)
+
+        actions = QHBoxLayout()
+        actions.setSpacing(14)
+        self._launch = make_button("▶  Lancer", variant="primary")
+        self._launch.setObjectName("launchButton")
+        self._launch.clicked.connect(lambda: self._emit_for_game(self.launch_requested))
+        self._status = make_label(role="pill")
+        change_banner = make_button("Changer la bannière…")
+        change_banner.clicked.connect(lambda: self._emit_for_game(self.change_banner_requested))
+        actions.addWidget(self._launch)
+        actions.addWidget(self._status)
+        actions.addStretch()
+        actions.addWidget(change_banner)
+        body.addLayout(actions)
+
+        # Petit message sous le bouton quand le jeu ne peut pas être lancé depuis Nova.
+        self._launch_hint = make_label(role="hint", wrap=True)
+        self._launch_hint.hide()
+        body.addWidget(self._launch_hint)
+        body.addSpacing(6)
 
         cards = QHBoxLayout()
         cards.setSpacing(12)
@@ -53,41 +93,91 @@ class GameDetails(QWidget):
         self._recent = _StatCard("7 derniers jours")
         for card in (self._total, self._last, self._recent):
             cards.addWidget(card)
-        layout.addLayout(cards)
-        layout.addStretch()
+        body.addLayout(cards)
+
+        self._location = ElidedLabel(role="hint")
+        body.addWidget(self._location)
+        body.addStretch()
 
         footer = QHBoxLayout()
         footer.addStretch()
-        self._remove = make_button("Retirer de la bibliothèque…", variant="danger")
-        self._remove.clicked.connect(self._on_remove_clicked)
-        footer.addWidget(self._remove)
-        layout.addLayout(footer)
+        remove = make_button("Retirer de la bibliothèque…", variant="danger")
+        remove.clicked.connect(lambda: self._emit_for_game(self.remove_requested))
+        footer.addWidget(remove)
+        body.addLayout(footer)
 
-    def show_game(self, row: GameRow, now: float) -> None:
-        self._game_id = row.game.id
-        self._title.setText(row.game.display_name)
+    # --- Affichage d'un jeu ---
+
+    def show_game(
+        self, row: GameRow, launching: bool, banner: Path | None, icon: QIcon | None
+    ) -> None:
+        self._row = row
+        self._banner.set_content(row.game.display_name, banner, icon)
+        location = row.game.exe_path or "chemin inconnu pour l'instant"
+        self._location.set_full_text(f"{row.game.process_name}  ·  {location}")
+        self._update_launch_button(row, launching)
+        self._refresh_numbers()
+        self._update_timer()
+
+    def _update_launch_button(self, row: GameRow, launching: bool) -> None:
+        problem = launch_problem(row.game)
+        if row.running:
+            self._launch.setText("En cours")
+            self._launch.setEnabled(False)
+            hint = None
+        elif launching:
+            self._launch.setText("Lancement…")
+            self._launch.setEnabled(False)
+            hint = "Nova attend que le jeu démarre."
+        else:
+            self._launch.setText("▶  Lancer")
+            self._launch.setEnabled(problem is None)
+            hint = problem
+        self._launch_hint.setText(hint or "")
+        self._launch_hint.setVisible(bool(hint))
+
+    def _refresh_numbers(self) -> None:
+        """Statut et statistiques ; appelée chaque seconde pendant qu'un jeu tourne."""
+        row = self._row
+        if row is None:
+            return
+        now = time.time()
         stats = row.stats
         if row.running_since is not None:
             stats = add_running_session(stats, row.running_since, now)
-            self._status.setText(f"●  En cours depuis {format_clock(row.running_since)}")
-            set_style_property(self._status, "role", "running")
+            self._status.setText(f"●  En cours · {format_elapsed(now - row.running_since)}")
+            set_style_property(self._status, "role", "pillRunning")
+            last = "En cours"
         else:
             self._status.setText("Fermé")
-            set_style_property(self._status, "role", "secondary")
-
-        location = row.game.exe_path or (
-            "Chemin inconnu : il sera récupéré automatiquement au premier lancement du jeu."
-        )
-        self._location.setText(f"{row.game.process_name}  ·  {location}")
+            set_style_property(self._status, "role", "pill")
+            last = format_last_played(stats.last_played_at, now)
         self._total.value.setText(format_duration(stats.total_seconds))
-        self._last.value.setText(
-            "En cours" if row.running else format_last_played(stats.last_played_at, now)
-        )
+        self._last.value.setText(last)
         self._recent.value.setText(format_duration(stats.last_7_days_seconds))
 
-    def _on_remove_clicked(self) -> None:
-        if self._game_id is not None:
-            self.remove_requested.emit(self._game_id)
+    # --- Compteur en direct ---
+
+    def set_live_allowed(self, allowed: bool) -> None:
+        """Appelée par la fenêtre : True si elle est visible et non réduite."""
+        self._live_allowed = allowed
+        self._update_timer()
+
+    @property
+    def is_counting(self) -> bool:
+        return self._timer.isActive()
+
+    def _update_timer(self) -> None:
+        should_count = self._live_allowed and self._row is not None and self._row.running
+        if should_count and not self._timer.isActive():
+            self._refresh_numbers()  # rattrape le temps écoulé pendant que la fenêtre était cachée
+            self._timer.start()
+        elif not should_count:
+            self._timer.stop()
+
+    def _emit_for_game(self, signal: Signal) -> None:
+        if self._row is not None:
+            signal.emit(self._row.game.id)
 
 
 class EmptyLibrary(QWidget):

@@ -208,6 +208,34 @@ QLabel[role="statValue"] {
     font-weight: 600;
 }
 
+QLabel[role="bannerTitle"] {
+    font-size: 24pt;
+    font-weight: 700;
+    color: @text;
+}
+
+/* Étiquette de statut à côté du bouton « Lancer ». */
+QLabel[role="pill"] {
+    background-color: @card;
+    color: @text_secondary;
+    border: 1px solid @border;
+    border-radius: 12px;
+    padding: 4px 12px;
+}
+
+QLabel[role="pillRunning"] {
+    background-color: @running_background;
+    color: @running;
+    border: 1px solid @running_border;
+    border-radius: 12px;
+    padding: 4px 12px;
+}
+
+QPushButton#launchButton {
+    font-size: 11pt;
+    padding: 9px 26px;
+}
+
 QFrame[role="card"] {
     background-color: @card;
     border-radius: 8px;

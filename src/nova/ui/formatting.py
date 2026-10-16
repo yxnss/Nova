@@ -49,6 +49,14 @@ def format_last_played(timestamp: float | None, now: float) -> str:
     return f"{moment.day} {_MONTHS[moment.month - 1]} {moment.year}"
 
 
+def format_elapsed(seconds: float) -> str:
+    """Compteur de la session en cours : « 0:05:12 », « 1:23:45 »."""
+    seconds = max(0, int(seconds))
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    return f"{hours}:{minutes:02d}:{secs:02d}"
+
+
 def format_clock(timestamp: float) -> str:
     """Heure locale « 14:05 »."""
     return f"{datetime.fromtimestamp(timestamp):%H:%M}"

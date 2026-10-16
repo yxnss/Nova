@@ -16,9 +16,10 @@ from nova import __version__
 from nova.data.database import connect
 from nova.services.library import LibraryService
 from nova.services.tracking import TrackingService
+from nova.system.banners import BannerStore
 from nova.system.icons import IconCache
 from nova.system.logging_setup import setup_logging
-from nova.system.paths import asset_path, database_path, icons_dir, logs_dir
+from nova.system.paths import asset_path, banners_dir, database_path, icons_dir, logs_dir
 from nova.system.windows import set_app_user_model_id
 from nova.ui.main_window import MainWindow
 from nova.ui.theme import apply_theme
@@ -39,7 +40,7 @@ def run() -> int:
     db_path = database_path()
     conn = connect(db_path)
     tracking = TrackingService(db_path)
-    library = LibraryService(conn, tracking, IconCache(icons_dir()))
+    library = LibraryService(conn, tracking, IconCache(icons_dir()), BannerStore(banners_dir()))
     window = MainWindow(library, tracking)
 
     # Fermer la fenêtre quitte Nova pour l'instant (le systray arrive à l'étape 5) :

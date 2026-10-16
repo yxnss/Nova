@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from nova.ui.formatting import format_duration, format_last_played, sort_key
+from nova.ui.formatting import format_duration, format_elapsed, format_last_played, sort_key
 
 NOW = datetime(2026, 10, 16, 15, 30).timestamp()  # heure locale
 
@@ -43,3 +43,11 @@ def test_format_last_played(moment: datetime | None, expected: str) -> None:
 def test_sort_key_ignores_accents_and_case() -> None:
     assert sort_key("Élan") == sort_key("elan")
     assert sorted(["Zelda", "élan", "Alba"], key=sort_key) == ["Alba", "élan", "Zelda"]
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [(0, "0:00:00"), (312, "0:05:12"), (5025, "1:23:45"), (-3, "0:00:00")],
+)
+def test_format_elapsed(seconds: float, expected: str) -> None:
+    assert format_elapsed(seconds) == expected
