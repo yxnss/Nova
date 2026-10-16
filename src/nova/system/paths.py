@@ -39,6 +39,10 @@ def icons_dir() -> Path:
     return data_dir() / "icons"
 
 
+def banners_dir() -> Path:
+    return data_dir() / "banners"
+
+
 def asset_path(name: str) -> Path:
     """Chemin d'un fichier du dossier ``assets`` du projet.
 
