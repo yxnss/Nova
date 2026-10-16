@@ -79,7 +79,7 @@ class TrayIcon(QObject):
         self, recent_games: Callable[[], list[RecentGame]], parent: QObject | None = None
     ) -> None:
         super().__init__(parent)
-        logo = QPixmap(str(asset_path("logo.png")))
+        logo = QPixmap(str(asset_path("logo_small.png")))
         self._icons = {False: tray_icon(logo, paused=False), True: tray_icon(logo, paused=True)}
         self._recent_games = recent_games
         self._paused = False

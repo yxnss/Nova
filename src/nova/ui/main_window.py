@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout()
         logo = QLabel()
         logo.setPixmap(
-            QPixmap(str(asset_path("logo.png"))).scaled(
+            QPixmap(str(asset_path("logo_small.png"))).scaled(
                 26,
                 26,
                 Qt.AspectRatioMode.KeepAspectRatio,

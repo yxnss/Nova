@@ -1,5 +1,7 @@
-# Dépendances de développement : exécution + tests + qualité de code.
+# Dépendances de développement : exécution + tests + qualité de code + construction de l'exe.
 -r requirements.txt
 -e .
 pytest==9.1.1
 ruff==0.17.1
+pyinstaller==6.22.3  # construction de Nova.exe (étape 7)
+pillow==13.0.0  # génération de l'icône .ico (tools/make_icon.py)

@@ -192,7 +192,7 @@ class EmptyLibrary(QWidget):
         layout.setSpacing(12)
 
         logo = QLabel()
-        pixmap = QPixmap(str(asset_path("logo.png")))
+        pixmap = QPixmap(str(asset_path("logo_small.png")))
         if not pixmap.isNull():
             logo.setPixmap(
                 pixmap.scaled(

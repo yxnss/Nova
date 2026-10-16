@@ -15,7 +15,7 @@ import sys
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QLibraryInfo, QTimer, QTranslator
 from PySide6.QtGui import QIcon, QSessionManager
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -83,7 +83,7 @@ def run(minimized: bool = False) -> int:
 
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Nova")
-    app.setWindowIcon(QIcon(str(asset_path("logo.png"))))
+    app.setWindowIcon(QIcon(str(asset_path("logo_small.png"))))
     # Fermer la fenêtre ne quitte pas Nova : seul « Quitter Nova » le fait.
     app.setQuitOnLastWindowClosed(False)
 
@@ -99,6 +99,10 @@ def run(minimized: bool = False) -> int:
 
     log.info("Démarrage de Nova %s%s", __version__, " (réduite)" if minimized else "")
     apply_theme(app)
+    # Textes standard de Qt en français (menu du clic droit dans les champs de saisie…).
+    translator = QTranslator(app)
+    if translator.load("qtbase_fr", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+        app.installTranslator(translator)
     db_path = database_path()
     try:
         conn, recovery_message = open_or_recover(db_path, backups_dir())
