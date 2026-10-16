@@ -43,6 +43,10 @@ def banners_dir() -> Path:
     return data_dir() / "banners"
 
 
+def settings_path() -> Path:
+    return data_dir() / "settings.ini"
+
+
 def asset_path(name: str) -> Path:
     """Chemin d'un fichier du dossier ``assets`` du projet.
 

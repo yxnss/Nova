@@ -21,3 +21,17 @@ def set_app_user_model_id() -> None:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
     except OSError:
         log.warning("Impossible de définir l'identité de Nova dans la barre des tâches")
+
+
+def allow_any_process_to_take_focus() -> None:
+    """Autorise la première instance de Nova à passer au premier plan.
+
+    Windows interdit à un programme en arrière-plan de voler le focus : sans cet
+    appel, la fenêtre réveillée se contenterait de clignoter dans la barre des
+    tâches. La nouvelle instance, lancée par l'utilisateur, a le droit de céder
+    ce privilège juste avant de demander le réveil.
+    """
+    if sys.platform != "win32":
+        return
+    asfw_any = 0xFFFFFFFF  # ASFW_ANY : n'importe quel processus
+    ctypes.windll.user32.AllowSetForegroundWindow(asfw_any)
