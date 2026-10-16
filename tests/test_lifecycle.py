@@ -12,6 +12,7 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
+from nova.app import LazyWindow
 from nova.system.autostart import AutoStart, launch_command
 from nova.system.settings import AppSettings
 from nova.system.single_instance import SingleInstance, channel_name
@@ -243,3 +244,27 @@ def test_settings_pause_button(qapp) -> None:
     dialog.set_paused(True)
     assert dialog._pause_button.text() == "Reprendre le suivi"
     assert "En pause" in dialog._status.text()
+
+
+# --- Fenêtre créée à la demande ---
+
+
+def test_window_is_created_only_when_first_needed() -> None:
+    created = []
+
+    class FakeWindow:
+        def __init__(self) -> None:
+            self.quitting = False
+            created.append(self)
+
+        def prepare_quit(self) -> None:
+            self.quitting = True
+
+    window = LazyWindow(FakeWindow)
+    window.prepare_quit()  # jamais ouverte : rien à préparer, et rien n'est créé
+    assert created == []
+
+    assert window.get() is window.get()  # créée une seule fois
+    assert len(created) == 1
+    window.prepare_quit()
+    assert created[0].quitting

@@ -8,6 +8,8 @@ import pytest
 from PySide6.QtGui import QColor, QImage
 
 from fakes import FakeClock, FakeTracking
+from nova.core.events import GameStarted, GameStopped, StopReason
+from nova.data.sessions_repo import SessionRepository
 from nova.services.library import LibraryError, LibraryService, normalize_new_process_name
 from nova.system.banners import BannerStore
 from nova.system.icons import IconCache
@@ -146,3 +148,23 @@ def test_launch_failure_is_remembered(library, tracking) -> None:
     library._launcher.launch_failed.emit(game.id, "Ce jeu ne se lance pas directement.")
 
     assert library.games()[0].launch_error == "Ce jeu ne se lance pas directement."
+
+
+def test_running_and_recent_games_for_the_tray(library, tracking, db) -> None:
+    library.add_game("never.exe", "Jamais joué")
+    old = library.add_game("old.exe", "Ancien")
+    running = library.add_game("running.exe", "En cours")
+    sessions = SessionRepository(db)
+    sessions.close_session(sessions.open_session(old.id, 100, 100), 200)
+
+    tracking.game_started.emit(GameStarted(running.id, 1000, None))
+    assert library.running() == {running.id: 1000}
+    assert library.running_names() == ["En cours"]
+    # Jeu en cours d'abord, puis les derniers joués ; un jeu jamais joué n'y est pas.
+    assert [(game.display_name, now) for game, now in library.recent_games()] == [
+        ("En cours", True),
+        ("Ancien", False),
+    ]
+
+    tracking.game_stopped.emit(GameStopped(running.id, 1000, 1004, StopReason.CLOSED, False))
+    assert library.running() == {}

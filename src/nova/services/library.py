@@ -14,6 +14,7 @@ from PySide6.QtCore import QObject, Signal, SignalInstance
 from PySide6.QtGui import QIcon
 
 from nova.core.clock import Clock, SystemClock
+from nova.core.events import GameStarted, GameStopped
 from nova.core.models import Game, GameStats
 from nova.data.games_repo import DuplicateGameError, GameRepository, normalize_process_name
 from nova.data.stats import load_stats
@@ -82,6 +83,11 @@ class LibraryService(QObject):
         self._icons = icons
         self._banners = banners
         self._clock = clock or SystemClock()
+        # Jeux en cours : id du jeu -> début de la session. Tenu ici (et non dans la
+        # fenêtre) pour que le systray fonctionne même quand la fenêtre n'existe pas.
+        self._running: dict[int, float] = {}
+        tracking.game_started.connect(self._on_game_started)
+        tracking.game_stopped.connect(self._on_game_stopped)
         self._launcher = launcher or GameLauncher(tracking.game_started, tracking.game_stopped)
         self._launcher.setParent(self)
         self._launcher.launch_failed.connect(self._on_launch_failed)
@@ -108,6 +114,26 @@ class LibraryService(QObject):
 
     def is_launching(self, game_id: int) -> bool:
         return self._launcher.is_pending(game_id)
+
+    def running(self) -> dict[int, float]:
+        """Jeux en cours : id du jeu -> début de la session."""
+        return dict(self._running)
+
+    def running_names(self) -> list[str]:
+        return [game.display_name for game in self.games() if game.id in self._running]
+
+    def recent_games(self) -> list[tuple[Game, bool]]:
+        """Jeux en cours puis derniers joués (jamais joués exclus), avec « en cours ? »."""
+        stats = self.stats()
+        played = [
+            game
+            for game in self.games()
+            if game.id in self._running or stats[game.id].last_played_at
+        ]
+        played.sort(
+            key=lambda game: (game.id not in self._running, -(stats[game.id].last_played_at or 0))
+        )
+        return [(game, game.id in self._running) for game in played]
 
     # --- Ajout et retrait ---
 
@@ -172,7 +198,14 @@ class LibraryService(QObject):
 
     # --- Réactions au thread de suivi ---
 
+    def _on_game_started(self, event: GameStarted) -> None:
+        self._running[event.game_id] = event.started_at
+
+    def _on_game_stopped(self, event: GameStopped) -> None:
+        self._running.pop(event.game_id, None)
+
     def _on_game_removed(self, game_id: int) -> None:
+        self._running.pop(game_id, None)
         self._icons.remove(game_id)
         self._banners.remove_all_for(game_id)
         self.changed.emit()

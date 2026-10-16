@@ -159,18 +159,6 @@ def test_pause_banner_follows_the_tracking_state(setup: Setup) -> None:
     assert setup.window._pause_banner.isHidden()
 
 
-def test_recent_games_for_the_tray_menu(setup: Setup) -> None:
-    never = setup.library.add_game("never.exe", "Jamais joué")
-    running = setup.library.add_game("running.exe", "En cours")
-    setup.tracking.game_started.emit(GameStarted(running.id, 1000, None))
-
-    recent = setup.window.recent_games()
-    assert [game.name for game in recent] == ["En cours"]  # un jeu jamais joué n'y est pas
-    assert recent[0].running
-    assert setup.window.running_game_names() == ["En cours"]
-    assert never.id not in [game.game_id for game in recent]
-
-
 def test_tray_can_open_a_game_sheet(setup: Setup) -> None:
     setup.library.add_game("a.exe", "Apex")
     zelda = setup.library.add_game("z.exe", "Zelda")

@@ -8,14 +8,20 @@ C'est le seul endroit qui connaît toutes les couches. L'ordre compte :
 5. la fenêtre et l'icône du systray, reliées par des signaux.
 """
 
+from __future__ import annotations
+
 import logging
 import sys
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon, QSessionManager
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from nova import __version__
-from nova.data.database import connect
+from nova.data.backup import backup_if_needed, open_or_recover
+from nova.data.database import UnsupportedDatabaseVersion
 from nova.services.library import LibraryService
 from nova.services.tracking import TrackingService
 from nova.system.autostart import AutoStart
@@ -24,6 +30,7 @@ from nova.system.icons import IconCache
 from nova.system.logging_setup import setup_logging
 from nova.system.paths import (
     asset_path,
+    backups_dir,
     banners_dir,
     data_dir,
     database_path,
@@ -34,9 +41,12 @@ from nova.system.paths import (
 from nova.system.settings import AppSettings
 from nova.system.single_instance import SingleInstance
 from nova.system.windows import allow_any_process_to_take_focus, set_app_user_model_id
-from nova.ui.main_window import MainWindow
+from nova.ui.icons import generic_game_icon
 from nova.ui.theme import apply_theme
-from nova.ui.tray import TrayIcon
+from nova.ui.tray import RecentGame, TrayIcon
+
+if TYPE_CHECKING:  # seulement pour les annotations : la fenêtre est importée à la demande
+    from nova.ui.main_window import MainWindow
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +54,27 @@ CLOSE_NOTICE = (
     "Nova continue de mesurer votre temps de jeu en arrière-plan. "
     "Cliquez sur son icône pour la rouvrir, ou faites un clic droit pour la quitter."
 )
+
+
+class LazyWindow:
+    """Fenêtre principale créée seulement à sa première ouverture.
+
+    Nova lancée avec Windows reste dans le systray : tant qu'on ne l'ouvre pas, la
+    fenêtre n'existe pas, ce qui divise presque par deux la mémoire utilisée.
+    """
+
+    def __init__(self, factory: Callable[[], MainWindow]) -> None:
+        self._factory = factory
+        self._window: MainWindow | None = None
+
+    def get(self) -> MainWindow:
+        if self._window is None:
+            self._window = self._factory()
+        return self._window
+
+    def prepare_quit(self) -> None:
+        if self._window is not None:
+            self._window.prepare_quit()
 
 
 def run(minimized: bool = False) -> int:
@@ -69,7 +100,25 @@ def run(minimized: bool = False) -> int:
     log.info("Démarrage de Nova %s%s", __version__, " (réduite)" if minimized else "")
     apply_theme(app)
     db_path = database_path()
-    conn = connect(db_path)
+    try:
+        conn, recovery_message = open_or_recover(db_path, backups_dir())
+    except UnsupportedDatabaseVersion:
+        QMessageBox.critical(
+            None,
+            "Nova",
+            "Votre bibliothèque a été créée par une version plus récente de Nova. "
+            "Installez la dernière version de Nova pour l'ouvrir.",
+        )
+        instance.release()
+        return 1
+    if recovery_message:
+        QMessageBox.warning(None, "Nova", recovery_message)
+    backup_if_needed(conn, backups_dir())
+    # Nova peut tourner des jours sans redémarrer : on vérifie chaque heure s'il faut
+    # faire la sauvegarde du jour (une seule écriture par jour).
+    backup_timer = QTimer()
+    backup_timer.timeout.connect(lambda: backup_if_needed(conn, backups_dir()))
+    backup_timer.start(60 * 60 * 1000)
     tracking = TrackingService(db_path)
     library = LibraryService(conn, tracking, IconCache(icons_dir()), BannerStore(banners_dir()))
     settings = AppSettings(settings_path())
@@ -79,18 +128,39 @@ def run(minimized: bool = False) -> int:
     except OSError:
         log.warning("Impossible de vérifier le démarrage automatique", exc_info=True)
 
-    window = MainWindow(library, tracking, autostart)
-    tray = TrayIcon(window.recent_games)
+    def recent_games() -> list[RecentGame]:
+        return [
+            RecentGame(
+                game.id, game.display_name, library.icon(game.id) or generic_game_icon(), running
+            )
+            for game, running in library.recent_games()
+        ]
 
-    def quit_nova() -> None:
-        window.prepare_quit()
-        app.quit()
+    tray = TrayIcon(recent_games)
+    paused = False
 
     def on_closed_to_tray() -> None:
         # Une seule fois : expliquer que Nova n'est pas arrêtée.
         if not settings.close_notice_shown:
             tray.notify("Nova est toujours active", CLOSE_NOTICE)
             settings.close_notice_shown = True
+
+    def create_window() -> MainWindow:
+        # Import ici : les modules de la fenêtre ne sont chargés qu'à sa première ouverture.
+        from nova.ui.main_window import MainWindow
+
+        main_window = MainWindow(library, tracking, autostart)
+        main_window.set_paused(paused)
+        main_window.pause_requested.connect(tracking.set_paused)
+        main_window.closed_to_tray.connect(on_closed_to_tray)
+        tracking.paused_changed.connect(main_window.set_paused)
+        return main_window
+
+    window = LazyWindow(create_window)
+
+    def quit_nova() -> None:
+        window.prepare_quit()
+        app.quit()
 
     def on_windows_session_end(manager: QSessionManager) -> None:
         # Arrêt ou déconnexion de Windows : on clôture les sessions tout de suite, à la
@@ -99,21 +169,20 @@ def run(minimized: bool = False) -> int:
         window.prepare_quit()
         tracking.stop()
 
-    def update_running_games() -> None:
-        tray.set_running_games(window.running_game_names())
+    def on_paused_changed(is_paused: bool) -> None:
+        nonlocal paused
+        paused = is_paused
 
-    tray.open_requested.connect(window.show_and_raise)
-    tray.game_requested.connect(window.show_game)
-    tray.settings_requested.connect(window.open_settings)
+    tray.open_requested.connect(lambda: window.get().show_and_raise())
+    tray.game_requested.connect(lambda game_id: window.get().show_game(game_id))
+    tray.settings_requested.connect(lambda: window.get().open_settings())
     tray.pause_requested.connect(tracking.set_paused)
     tray.quit_requested.connect(quit_nova)
-    window.pause_requested.connect(tracking.set_paused)
-    window.closed_to_tray.connect(on_closed_to_tray)
+    tracking.paused_changed.connect(on_paused_changed)
     tracking.paused_changed.connect(tray.set_paused)
-    tracking.paused_changed.connect(window.set_paused)
-    tracking.game_started.connect(update_running_games)
-    tracking.game_stopped.connect(update_running_games)
-    instance.activation_requested.connect(window.show_and_raise)
+    tracking.game_started.connect(lambda _: tray.set_running_games(library.running_names()))
+    tracking.game_stopped.connect(lambda _: tray.set_running_games(library.running_names()))
+    instance.activation_requested.connect(lambda: window.get().show_and_raise())
     app.commitDataRequest.connect(on_windows_session_end)
     app.aboutToQuit.connect(tracking.stop)
     app.aboutToQuit.connect(tray.hide)
@@ -121,7 +190,7 @@ def run(minimized: bool = False) -> int:
     tracking.start()
     tray.show()
     if not minimized:
-        window.show()
+        window.get().show()
     code = app.exec()
     conn.close()
     instance.release()
