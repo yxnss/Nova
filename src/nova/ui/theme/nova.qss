@@ -37,14 +37,11 @@ QToolTip {
     background-color: transparent;
     border: none;
     border-radius: 6px;
-    color: @text_secondary;
-    font-size: 14pt;
-    padding: 0 6px;
+    padding: 4px;
 }
 
 #settingsButton:hover {
     background-color: @hover;
-    color: @text;
 }
 
 /* Bandeau affiché pendant la pause du suivi. */
@@ -90,6 +87,9 @@ QComboBox {
     border-radius: 6px;
     color: @text_secondary;
     padding: 4px 6px;
+    /* 0 : liste déroulante classique, toujours ouverte sous la barre (sinon le style
+       Fusion la superpose à l'élément choisi, et elle se décale selon le choix). */
+    combobox-popup: 0;
 }
 
 QComboBox:hover {

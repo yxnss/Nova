@@ -31,10 +31,9 @@ from nova.system.paths import asset_path
 from nova.ui.add_game_dialog import AddGameDialog
 from nova.ui.formatting import format_duration
 from nova.ui.game_details import EmptyLibrary, GameDetails
-from nova.ui.icons import generic_game_icon
+from nova.ui.icons import gear_icon
 from nova.ui.library_model import GameFilterProxy, GameItemDelegate, GameListModel, SortMode
 from nova.ui.settings_dialog import SettingsDialog
-from nova.ui.tray import RecentGame
 from nova.ui.widgets import make_button, make_label
 
 SIDEBAR_WIDTH = 270
@@ -53,7 +52,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._library = library
         self._autostart = autostart
-        self._running: dict[int, float] = {}  # id du jeu -> début de la session en cours
         self._paused = False
         self._quitting = False  # vrai seulement quand Nova quitte pour de bon
         self._settings_dialog: SettingsDialog | None = None
@@ -112,7 +110,9 @@ class MainWindow(QMainWindow):
         title.setObjectName("appTitle")
         settings = QToolButton()
         settings.setObjectName("settingsButton")
-        settings.setText("⚙")
+        settings.setIcon(gear_icon())
+        settings.setIconSize(QSize(18, 18))
+        settings.setAutoRaise(True)  # icône plus claire au survol
         settings.setToolTip("Paramètres")
         settings.setCursor(Qt.CursorShape.PointingHandCursor)
         settings.clicked.connect(self.open_settings)
@@ -169,7 +169,9 @@ class MainWindow(QMainWindow):
     def refresh(self) -> None:
         """Relit la bibliothèque et les statistiques, en gardant le jeu sélectionné."""
         selected = self._selected_game_id()
-        self._model.set_library(self._library.games(), self._library.stats(), self._running)
+        self._model.set_library(
+            self._library.games(), self._library.stats(), self._library.running()
+        )
         self._select(selected)
         self._update_details()
 
@@ -252,27 +254,6 @@ class MainWindow(QMainWindow):
         self._update_details()
         self.show_and_raise()
 
-    def recent_games(self) -> list[RecentGame]:
-        """Jeux en cours puis derniers joués, pour le menu du systray."""
-        rows = [
-            self._model.row_at(number)
-            for number in range(self._model.rowCount())
-            if self._model.row_at(number).running or self._model.row_at(number).stats.last_played_at
-        ]
-        rows.sort(key=lambda row: (not row.running, -(row.stats.last_played_at or 0)))
-        return [
-            RecentGame(
-                row.game.id,
-                row.game.display_name,
-                self._library.icon(row.game.id) or generic_game_icon(),
-                row.running,
-            )
-            for row in rows
-        ]
-
-    def running_game_names(self) -> list[str]:
-        return [row.game.display_name for row in map(self._model.find, self._running) if row]
-
     # --- Pause et paramètres ---
 
     def set_paused(self, paused: bool) -> None:
@@ -291,12 +272,10 @@ class MainWindow(QMainWindow):
         self._settings_dialog.activateWindow()
 
     def _on_game_started(self, event: GameStarted) -> None:
-        self._running[event.game_id] = event.started_at
         self._model.set_running(event.game_id, event.started_at)
         self._update_details()
 
     def _on_game_stopped(self, event: GameStopped) -> None:
-        self._running.pop(event.game_id, None)
         self.refresh()  # la session vient d'être enregistrée : les statistiques changent
 
     # --- Lancement et bannière ---
