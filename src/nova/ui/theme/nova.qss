@@ -33,6 +33,43 @@ QToolTip {
     font-weight: 600;
 }
 
+#settingsButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    color: @text_secondary;
+    font-size: 14pt;
+    padding: 0 6px;
+}
+
+#settingsButton:hover {
+    background-color: @hover;
+    color: @text;
+}
+
+/* Bandeau affiché pendant la pause du suivi. */
+#pauseBanner {
+    background-color: @card;
+    border: 1px solid @paused;
+    border-radius: 6px;
+}
+
+#pauseBanner QLabel {
+    color: @paused;
+}
+
+QPushButton[variant="link"] {
+    background-color: transparent;
+    border: none;
+    color: @lilac;
+    padding: 2px 6px;
+}
+
+QPushButton[variant="link"]:hover {
+    color: @text;
+    text-decoration: underline;
+}
+
 /* --- Champs de saisie et listes déroulantes --- */
 
 QLineEdit {
@@ -198,6 +235,15 @@ QLabel[role="running"] {
     color: @running;
 }
 
+QLabel[role="paused"] {
+    color: @paused;
+}
+
+QLabel[role="sectionTitle"] {
+    font-size: 11pt;
+    font-weight: 600;
+}
+
 QLabel[role="statLabel"] {
     color: @text_secondary;
     font-size: 9pt;
@@ -295,11 +341,22 @@ QMenu {
     background-color: @card;
     border: 1px solid @border;
     padding: 4px;
+    min-width: 210px;
 }
 
 QMenu::item {
-    padding: 6px 18px;
+    padding: 7px 24px 7px 12px;
     border-radius: 4px;
+}
+
+QMenu::icon {
+    padding-left: 8px;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: @border;
+    margin: 4px 6px;
 }
 
 QMenu::item:selected {

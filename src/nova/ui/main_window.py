@@ -2,12 +2,13 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QModelIndex, QPoint, QSize, Qt
-from PySide6.QtGui import QHideEvent, QPixmap, QShowEvent
+from PySide6.QtCore import QEvent, QModelIndex, QPoint, QSize, Qt, Signal
+from PySide6.QtGui import QCloseEvent, QHideEvent, QPixmap, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QStackedWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -23,22 +25,38 @@ from PySide6.QtWidgets import (
 from nova.core.events import GameStarted, GameStopped
 from nova.services.library import LibraryError, LibraryService
 from nova.services.tracking import TrackingService
+from nova.system.autostart import AutoStart
 from nova.system.banners import IMAGE_FILTER
 from nova.system.paths import asset_path
 from nova.ui.add_game_dialog import AddGameDialog
 from nova.ui.formatting import format_duration
 from nova.ui.game_details import EmptyLibrary, GameDetails
+from nova.ui.icons import generic_game_icon
 from nova.ui.library_model import GameFilterProxy, GameItemDelegate, GameListModel, SortMode
-from nova.ui.widgets import make_button
+from nova.ui.settings_dialog import SettingsDialog
+from nova.ui.tray import RecentGame
+from nova.ui.widgets import make_button, make_label
 
 SIDEBAR_WIDTH = 270
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, library: LibraryService, tracking: TrackingService) -> None:
+    pause_requested = Signal(bool)  # True : mettre en pause ; False : reprendre
+    closed_to_tray = Signal()  # la fenêtre vient d'être rangée dans le systray
+
+    def __init__(
+        self,
+        library: LibraryService,
+        tracking: TrackingService,
+        autostart: AutoStart | None = None,
+    ) -> None:
         super().__init__()
         self._library = library
+        self._autostart = autostart
         self._running: dict[int, float] = {}  # id du jeu -> début de la session en cours
+        self._paused = False
+        self._quitting = False  # vrai seulement quand Nova quitte pour de bon
+        self._settings_dialog: SettingsDialog | None = None
         self._model = GameListModel(library.icon)
         self._proxy = GameFilterProxy(self._model)
 
@@ -92,10 +110,29 @@ class MainWindow(QMainWindow):
         )
         title = QLabel("Nova")
         title.setObjectName("appTitle")
+        settings = QToolButton()
+        settings.setObjectName("settingsButton")
+        settings.setText("⚙")
+        settings.setToolTip("Paramètres")
+        settings.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings.clicked.connect(self.open_settings)
         header.addWidget(logo)
         header.addWidget(title)
         header.addStretch()
+        header.addWidget(settings)
         layout.addLayout(header)
+
+        # Bandeau visible seulement pendant la pause du suivi.
+        self._pause_banner = QFrame()
+        self._pause_banner.setObjectName("pauseBanner")
+        banner_layout = QHBoxLayout(self._pause_banner)
+        banner_layout.setContentsMargins(10, 6, 6, 6)
+        banner_layout.addWidget(make_label("Suivi en pause"), 1)
+        resume = make_button("Reprendre", variant="link")
+        resume.clicked.connect(lambda: self.pause_requested.emit(False))
+        banner_layout.addWidget(resume)
+        self._pause_banner.hide()
+        layout.addWidget(self._pause_banner)
 
         self._search = QLineEdit()
         self._search.setPlaceholderText("Rechercher un jeu")
@@ -184,6 +221,74 @@ class MainWindow(QMainWindow):
 
     def _update_live_display(self) -> None:
         self._details.set_live_allowed(self.isVisible() and not self.isMinimized())
+
+    # --- Cycle de vie : fermer la fenêtre range Nova dans le systray ---
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._quitting:
+            event.accept()
+            return
+        # Le suivi continue : la fenêtre est seulement cachée.
+        event.ignore()
+        self.hide()
+        self.closed_to_tray.emit()
+
+    def prepare_quit(self) -> None:
+        """À appeler avant de quitter Nova : la fermeture de la fenêtre est alors acceptée."""
+        self._quitting = True
+
+    def show_and_raise(self) -> None:
+        """Affiche la fenêtre au premier plan (depuis le systray ou une autre instance)."""
+        if self.isMinimized():
+            self.showNormal()
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+    def show_game(self, game_id: int) -> None:
+        """Affiche la fenêtre sur la fiche d'un jeu (menu du systray)."""
+        self._search.clear()
+        self._select(game_id)
+        self._update_details()
+        self.show_and_raise()
+
+    def recent_games(self) -> list[RecentGame]:
+        """Jeux en cours puis derniers joués, pour le menu du systray."""
+        rows = [
+            self._model.row_at(number)
+            for number in range(self._model.rowCount())
+            if self._model.row_at(number).running or self._model.row_at(number).stats.last_played_at
+        ]
+        rows.sort(key=lambda row: (not row.running, -(row.stats.last_played_at or 0)))
+        return [
+            RecentGame(
+                row.game.id,
+                row.game.display_name,
+                self._library.icon(row.game.id) or generic_game_icon(),
+                row.running,
+            )
+            for row in rows
+        ]
+
+    def running_game_names(self) -> list[str]:
+        return [row.game.display_name for row in map(self._model.find, self._running) if row]
+
+    # --- Pause et paramètres ---
+
+    def set_paused(self, paused: bool) -> None:
+        self._paused = paused
+        self._pause_banner.setVisible(paused)
+        if self._settings_dialog is not None:
+            self._settings_dialog.set_paused(paused)
+
+    def open_settings(self) -> None:
+        if self._settings_dialog is None:
+            self._settings_dialog = SettingsDialog(self._autostart, self._paused, self)
+            self._settings_dialog.pause_requested.connect(self.pause_requested)
+        self._settings_dialog.set_paused(self._paused)
+        self._settings_dialog.show()
+        self._settings_dialog.raise_()
+        self._settings_dialog.activateWindow()
 
     def _on_game_started(self, event: GameStarted) -> None:
         self._running[event.game_id] = event.started_at

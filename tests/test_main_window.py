@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPushButton
 
 from fakes import FakeClock, FakeTracking
 from nova.core.events import GameStarted, GameStopped, StopReason
@@ -125,3 +126,56 @@ def test_search_filters_the_list(setup: Setup) -> None:
     setup.window._search.setText("zel")
     assert setup.window._proxy.rowCount() == 1
     assert setup.window._proxy.index(0, 0).data() == "Zelda"
+
+
+# --- Étape 5 : systray et pause ---
+
+
+def test_closing_the_window_hides_it_instead_of_quitting(setup: Setup) -> None:
+    notified = []
+    setup.window.closed_to_tray.connect(lambda: notified.append(True))
+    show_offscreen(setup.window)
+
+    setup.window.close()
+    assert not setup.window.isVisible()
+    assert notified == [True]
+
+    setup.window.prepare_quit()  # « Quitter Nova »
+    show_offscreen(setup.window)
+    assert setup.window.close()  # cette fois, la fermeture est acceptée
+    assert notified == [True]
+
+
+def test_pause_banner_follows_the_tracking_state(setup: Setup) -> None:
+    resume_requests = []
+    setup.window.pause_requested.connect(resume_requests.append)
+
+    setup.window.set_paused(True)
+    assert not setup.window._pause_banner.isHidden()
+
+    setup.window._pause_banner.findChild(QPushButton).click()  # « Reprendre »
+    assert resume_requests == [False]
+    setup.window.set_paused(False)
+    assert setup.window._pause_banner.isHidden()
+
+
+def test_recent_games_for_the_tray_menu(setup: Setup) -> None:
+    never = setup.library.add_game("never.exe", "Jamais joué")
+    running = setup.library.add_game("running.exe", "En cours")
+    setup.tracking.game_started.emit(GameStarted(running.id, 1000, None))
+
+    recent = setup.window.recent_games()
+    assert [game.name for game in recent] == ["En cours"]  # un jeu jamais joué n'y est pas
+    assert recent[0].running
+    assert setup.window.running_game_names() == ["En cours"]
+    assert never.id not in [game.game_id for game in recent]
+
+
+def test_tray_can_open_a_game_sheet(setup: Setup) -> None:
+    setup.library.add_game("a.exe", "Apex")
+    zelda = setup.library.add_game("z.exe", "Zelda")
+    setup.window.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+
+    setup.window.show_game(zelda.id)
+    assert setup.window.isVisible()
+    assert setup.window._details._banner.title.text() == "Zelda"
