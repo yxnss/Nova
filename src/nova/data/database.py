@@ -34,6 +34,11 @@ MIGRATIONS: list[tuple[str, ...]] = [
         """,
         "CREATE INDEX sessions_game_id ON sessions (game_id)",
     ),
+    # Version 2 : bannière personnalisée et jeux impossibles à lancer directement.
+    (
+        "ALTER TABLE games ADD COLUMN banner_file TEXT",  # NULL : bannière par défaut
+        "ALTER TABLE games ADD COLUMN launch_error TEXT",  # NULL : lançable (à notre connaissance)
+    ),
 ]
 
 

@@ -58,3 +58,25 @@ def test_deleting_a_game_also_deletes_its_sessions(db: sqlite3.Connection) -> No
     assert games.get(removed.id) is None
     remaining = db.execute("SELECT game_id FROM sessions").fetchall()
     assert [row["game_id"] for row in remaining] == [kept.id]
+
+
+def test_banner_and_launch_error_are_stored(db: sqlite3.Connection) -> None:
+    games = GameRepository(db)
+    game = games.add("game.exe", "Game", "C:/Jeux/game.exe", added_at=0)
+
+    games.set_banner(game.id, "1-abcd.jpg")
+    games.set_launch_error(game.id, "Ce jeu ne se lance pas directement.")
+    stored = games.get(game.id)
+    assert (stored.banner_file, stored.launch_error) == (
+        "1-abcd.jpg",
+        "Ce jeu ne se lance pas directement.",
+    )
+
+
+def test_new_exe_path_forgets_a_previous_launch_failure(db: sqlite3.Connection) -> None:
+    games = GameRepository(db)
+    game = games.add("game.exe", "Game", "C:/Jeux/game.exe", added_at=0)
+    games.set_launch_error(game.id, "Ce jeu ne se lance pas directement.")
+
+    games.update_exe_path(game.id, "D:/Jeux/game.exe")  # jeu déplacé ou réinstallé
+    assert games.get(game.id).launch_error is None

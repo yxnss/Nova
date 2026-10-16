@@ -46,3 +46,23 @@ def test_transaction_is_cancelled_entirely_on_error(db: sqlite3.Connection) -> N
         raise RuntimeError("panne au milieu de la transaction")
 
     assert games.list_all() == []
+
+
+def test_version_1_database_is_migrated_without_losing_data(db_path) -> None:
+    """Cas réel : la bibliothèque créée par l'étape 3 passe au schéma de l'étape 4."""
+    old = sqlite3.connect(db_path)
+    for statement in MIGRATIONS[0]:
+        old.execute(statement)
+    old.execute("INSERT INTO games VALUES (1, 'game.exe', 'Mon jeu', 'C:/Jeux/game.exe', 0)")
+    old.execute("INSERT INTO sessions VALUES (1, 1, 0, 3600, 3600)")
+    old.execute("PRAGMA user_version = 1")
+    old.commit()
+    old.close()
+
+    conn = connect(db_path)
+    game = GameRepository(conn).get(1)
+    assert pragma(conn, "user_version") == len(MIGRATIONS)
+    assert (game.display_name, game.exe_path) == ("Mon jeu", "C:/Jeux/game.exe")
+    assert (game.banner_file, game.launch_error) == (None, None)
+    assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 1
+    conn.close()

@@ -52,7 +52,17 @@ class GameRepository:
         return [TrackedGame(row["id"], row["process_name"]) for row in rows]
 
     def update_exe_path(self, game_id: int, exe_path: str) -> None:
-        self._conn.execute("UPDATE games SET exe_path = ? WHERE id = ?", (exe_path, game_id))
+        # Nouveau chemin (jeu déplacé, mis à jour…) : un ancien échec de lancement ne
+        # vaut plus, le bouton « Lancer » redevient disponible.
+        self._conn.execute(
+            "UPDATE games SET exe_path = ?, launch_error = NULL WHERE id = ?", (exe_path, game_id)
+        )
+
+    def set_banner(self, game_id: int, banner_file: str | None) -> None:
+        self._conn.execute("UPDATE games SET banner_file = ? WHERE id = ?", (banner_file, game_id))
+
+    def set_launch_error(self, game_id: int, message: str | None) -> None:
+        self._conn.execute("UPDATE games SET launch_error = ? WHERE id = ?", (message, game_id))
 
     def delete(self, game_id: int) -> None:
         """Supprime le jeu ; ses sessions sont supprimées en cascade par SQLite."""
@@ -66,4 +76,6 @@ def _to_game(row: sqlite3.Row) -> Game:
         display_name=row["display_name"],
         exe_path=row["exe_path"],
         added_at=row["added_at"],
+        banner_file=row["banner_file"],
+        launch_error=row["launch_error"],
     )

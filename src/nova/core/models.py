@@ -20,6 +20,8 @@ class Game:
     display_name: str
     exe_path: str | None  # None : chemin inconnu (ajout par nom) ou illisible
     added_at: int  # secondes UTC
+    banner_file: str | None = None  # None : bannière par défaut
+    launch_error: str | None = None  # raison pour laquelle « Lancer » est grisé
 
 
 @dataclass(frozen=True)
