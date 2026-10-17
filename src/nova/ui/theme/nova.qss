@@ -43,7 +43,8 @@ QToolTip {
     background-color: transparent;
     border: none;
     border-radius: 6px;
-    padding: 4px;
+    /* Un peu plus d'espace en haut : l'icône se centre sur le logo et le titre. */
+    padding: 6px 4px 3px 4px;
 }
 
 #settingsButton:hover {
@@ -198,6 +199,8 @@ QPushButton[variant="add"] {
     background-color: transparent;
     border: 1px dashed @border_strong;
     color: @lilac;
+    /* Texte remonté de 2 px : la police laisse plus de place au-dessus des lettres. */
+    padding: 5px 14px 9px 14px;
 }
 
 QPushButton[variant="add"]:hover {
