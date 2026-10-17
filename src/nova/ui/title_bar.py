@@ -35,12 +35,24 @@ GLYPH_SIZE = 10  # taille des petits dessins des boutons
 _INTERACTIVE = (QAbstractButton, QLineEdit, QComboBox, QAbstractItemView)
 
 
-def hit_test(x: float, y: float, width: int, height: int, maximized: bool, on_control: bool) -> int:
+def hit_test(
+    x: float,
+    y: float,
+    width: int,
+    height: int,
+    maximized: bool,
+    on_control: bool,
+    on_window_button: bool = False,
+) -> int:
     """Indique à Windows ce qui se trouve sous la souris : un bord, la barre de titre ou le contenu.
 
     ``x`` et ``y`` sont relatifs au coin haut gauche de la fenêtre. Une fenêtre agrandie
-    n'a pas de bords à tirer.
+    n'a pas de bords à tirer. Les boutons de la fenêtre passent avant les bords : la
+    souris envoyée tout au fond du coin haut droit reste sur « Fermer », comme sous
+    Windows, au lieu de devenir une flèche de redimensionnement.
     """
+    if on_window_button:
+        return windows.HTCLIENT
     if not maximized:
         left, right = x < RESIZE_BORDER, x >= width - RESIZE_BORDER
         top, bottom = y < RESIZE_BORDER, y >= height - RESIZE_BORDER
@@ -230,6 +242,7 @@ class WindowFrame(QObject):
                 self._window.height(),
                 windows.is_maximized(msg.hWnd),
                 _is_interactive(child),
+                child is not None and self.buttons.isAncestorOf(child),
             )
             return True, area
         return None

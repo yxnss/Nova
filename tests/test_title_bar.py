@@ -28,6 +28,13 @@ def test_top_band_moves_the_window_except_over_a_control() -> None:
     assert zone(500, CAPTION_HEIGHT + 1) == windows.HTCLIENT
 
 
+def test_window_buttons_win_over_the_edges_in_the_corner() -> None:
+    # Coin haut droit, sous « Fermer » : le bouton reste cliquable.
+    assert hit_test(WIDTH - 1, 1, WIDTH, HEIGHT, False, True, on_window_button=True) == (
+        windows.HTCLIENT
+    )
+
+
 def test_maximized_window_has_no_edges_to_drag() -> None:
     assert zone(1, 1, maximized=True) == windows.HTCAPTION
     assert zone(1, 300, maximized=True) == windows.HTCLIENT
