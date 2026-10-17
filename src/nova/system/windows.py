@@ -135,17 +135,19 @@ def is_maximized(hwnd: int) -> bool:
 
 
 def cursor_offset(message: wintypes.MSG) -> tuple[int, int]:
-    """Position de la souris d'un WM_NCHITTEST par rapport au coin de la fenêtre.
+    """Position de la souris d'un WM_NCHITTEST dans la zone dessinée par Nova.
 
-    Le résultat est en pixels physiques de l'écran.
+    Le résultat est en pixels physiques, depuis le coin haut gauche de cette zone. On ne
+    part pas du coin de la fenêtre : agrandie, elle déborde de l'écran de quelques
+    pixels, et tout serait décalé (le coin de l'écran tomberait hors du bouton Fermer).
     """
     # La position à l'écran est rangée dans lParam : deux entiers signés de 16 bits
     # (négatifs sur un écran placé à gauche ou au-dessus de l'écran principal).
     x = ctypes.c_short(message.lParam & 0xFFFF).value
     y = ctypes.c_short((message.lParam >> 16) & 0xFFFF).value
-    rect = wintypes.RECT()
-    ctypes.windll.user32.GetWindowRect(wintypes.HWND(message.hWnd), ctypes.byref(rect))
-    return x - rect.left, y - rect.top
+    point = wintypes.POINT(x, y)
+    ctypes.windll.user32.ScreenToClient(wintypes.HWND(message.hWnd), ctypes.byref(point))
+    return point.x, point.y
 
 
 def fill_client_area(message: wintypes.MSG) -> None:
