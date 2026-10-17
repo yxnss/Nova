@@ -34,6 +34,7 @@ from nova.ui.game_details import EmptyLibrary, GameDetails
 from nova.ui.icons import gear_icon
 from nova.ui.library_model import GameFilterProxy, GameItemDelegate, GameListModel, SortMode
 from nova.ui.settings_dialog import SettingsDialog
+from nova.ui.title_bar import CAPTION_HEIGHT, WindowFrame
 from nova.ui.widgets import make_button, make_label
 
 SIDEBAR_WIDTH = 270
@@ -74,6 +75,8 @@ class MainWindow(QMainWindow):
         self._pages.addWidget(self._details)
         layout.addWidget(self._pages, 1)
         self.setCentralWidget(central)
+        # Barre de titre intégrée : la barre latérale et la bannière montent jusqu'en haut.
+        self._frame = WindowFrame(self)
 
         library.changed.connect(self.refresh)
         library.launch_state_changed.connect(self._update_details)
@@ -93,10 +96,16 @@ class MainWindow(QMainWindow):
         sidebar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         sidebar.setFixedWidth(SIDEBAR_WIDTH)
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(12, 14, 12, 12)
+        layout.setContentsMargins(12, 0, 12, 12)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
+        # En-tête de la hauteur de la barre de titre : le logo s'aligne sur les boutons
+        # de la fenêtre, et cette zone sert aussi à déplacer la fenêtre.
+        header_area = QWidget()
+        header_area.setObjectName("sidebarHeader")
+        header_area.setFixedHeight(CAPTION_HEIGHT)
+        header = QHBoxLayout(header_area)
+        header.setContentsMargins(0, 0, 0, 0)
         logo = QLabel()
         logo.setPixmap(
             QPixmap(str(asset_path("logo_small.png"))).scaled(
@@ -120,7 +129,7 @@ class MainWindow(QMainWindow):
         header.addWidget(title)
         header.addStretch()
         header.addWidget(settings)
-        layout.addLayout(header)
+        layout.addWidget(header_area)
 
         # Bandeau visible seulement pendant la pause du suivi.
         self._pause_banner = QFrame()
@@ -205,6 +214,10 @@ class MainWindow(QMainWindow):
                 icon=self._library.icon(row.game.id),
             )
         self._pages.setCurrentWidget(self._details)
+
+    def nativeEvent(self, event_type, message) -> tuple[bool, int]:
+        answer = self._frame.native_event(int(message))
+        return answer if answer is not None else super().nativeEvent(event_type, message)
 
     # --- Compteur en direct : seulement si la fenêtre est visible et non réduite ---
 

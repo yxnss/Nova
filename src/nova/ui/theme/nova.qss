@@ -28,6 +28,12 @@ QToolTip {
     background-color: transparent;
 }
 
+/* En-tête de la barre latérale et boutons de la fenêtre : posés sur le fond voisin. */
+#sidebarHeader,
+#windowButtons {
+    background-color: transparent;
+}
+
 #appTitle {
     font-size: 13pt;
     font-weight: 600;

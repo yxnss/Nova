@@ -29,5 +29,6 @@ COLORS = {
     "running_background": "#12261F",
     "running_border": "#1F5A43",
     "danger": "#F26D7D",
+    "window_close": "#C42B1C",  # bouton « Fermer » survolé : le rouge habituel de Windows
     "paused": "#F5B841",  # pause du suivi : ambre, bien visible sur l'icône du systray
 }

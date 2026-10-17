@@ -43,6 +43,7 @@ from nova.system.single_instance import SingleInstance
 from nova.system.windows import allow_any_process_to_take_focus, set_app_user_model_id
 from nova.ui.icons import generic_game_icon
 from nova.ui.theme import apply_theme
+from nova.ui.title_bar import blend_native_title_bars
 from nova.ui.tray import RecentGame, TrayIcon
 
 if TYPE_CHECKING:  # seulement pour les annotations : la fenêtre est importée à la demande
@@ -99,6 +100,7 @@ def run(minimized: bool = False) -> int:
 
     log.info("Démarrage de Nova %s%s", __version__, " (réduite)" if minimized else "")
     apply_theme(app)
+    blend_native_title_bars(app)
     # Textes standard de Qt en français (menu du clic droit dans les champs de saisie…).
     translator = QTranslator(app)
     if translator.load("qtbase_fr", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
