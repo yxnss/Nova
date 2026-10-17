@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
         settings = QToolButton()
         settings.setObjectName("settingsButton")
         settings.setIcon(gear_icon())
-        settings.setIconSize(QSize(18, 18))
+        settings.setIconSize(QSize(13, 13))
         settings.setAutoRaise(True)  # icône plus claire au survol
         settings.setToolTip("Paramètres")
         settings.setCursor(Qt.CursorShape.PointingHandCursor)
