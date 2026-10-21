@@ -5,8 +5,8 @@
 <h1 align="center">Nova</h1>
 
 <p align="center">
-  Nova mesure automatiquement le temps que vous passez sur vos jeux Windows, sans avoir à les lancer depuis elle.<br>
-  Elle tourne discrètement près de l'horloge et présente votre bibliothèque dans une interface sombre inspirée de Steam.
+  Nova mesure automatiquement le temps que vous passez sur vos jeux, sans avoir à les lancer depuis elle.<br>
+  Elle tourne discrètement et présente votre bibliothèque dans une interface sombre et moderne.
 </p>
 
 <p align="center">
@@ -23,13 +23,13 @@
 
 ## Fonctionnalités
 
-- **Suivi automatique** : dès qu'un jeu de votre liste est lancé, par n'importe quel moyen (Steam, Epic, Riot, raccourci…), son temps est compté. Fonctionne aussi avec les jeux protégés par un anti-triche (testé avec Valorant et Fortnite).
+- **Suivi automatique** : dès qu'un jeu de votre liste est lancé, par n'importe quel moyen (Steam, Epic, Riot, raccourci…), son temps est compté. Fonctionne aussi avec les jeux protégés par un anti-triche.
 - **Statistiques par jeu** : temps total, dernière utilisation, temps des 7 derniers jours, et compteur en direct pendant une partie.
 - **Ajout simple** : choisissez le jeu parmi les programmes en cours (le plus sûr), sélectionnez son fichier `.exe`, ou tapez son nom de processus. L'icône et le nom sont récupérés automatiquement.
 - **Bibliothèque à la Steam** : recherche, trois tris (dernière utilisation, temps de jeu, ordre alphabétique), bannière par défaut ou image de votre choix, bouton « Lancer ».
-- **Discrète** : fermer la fenêtre la range près de l'horloge. Menu du clic droit à la Steam, pause du suivi, démarrage avec Windows, une seule instance à la fois.
+- **Discrète** : fermer la fenêtre la range parmis les applications minimisées. Menu du clic droit, pause du suivi, démarrage avec Windows, une seule instance à la fois.
 - **Fiable** : la veille du PC n'est pas comptée, un crash ou une coupure de courant fait perdre au plus une minute, la bibliothèque est sauvegardée chaque jour et restaurée si elle est abîmée.
-- **Légère** : environ 0 % de processeur et 25 à 35 Mo de mémoire quand elle tourne en arrière-plan.
+- **Légère** : environ 0 % de processeur et 25 à 45 Mo de mémoire quand elle tourne en arrière-plan.
 
 ## Installation
 
