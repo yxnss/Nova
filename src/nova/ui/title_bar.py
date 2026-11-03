@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QWidget,
 )
+from shiboken6 import isValid
 
 from nova.system import windows
 from nova.ui.theme.palette import COLORS
@@ -211,6 +212,8 @@ class WindowFrame(QObject):
         window.installEventFilter(self)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if not isValid(self._window):
+            return False  # fenêtre en cours de destruction (fermeture de Nova)
         kind = event.type()
         if kind == QEvent.Type.Show and self.enabled and not self._native_ready:
             windows.prepare_custom_title_bar(int(self._window.winId()), COLORS["border"])
